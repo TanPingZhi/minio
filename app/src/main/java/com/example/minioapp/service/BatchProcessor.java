@@ -16,6 +16,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -65,8 +66,17 @@ public class BatchProcessor {
             Iterable<Result<Item>> results = minioClient.listObjects(
                     ListObjectsArgs.builder().bucket(tmpBucket).prefix(prefix).recursive(true).build());
 
+            // Collections.shuffle for probabilistic load balancing across pods
+            // Note: listObjects returns a lazy Iterable that handles MinIO pagination transparently.
+            // We iterate fully to load all items into memory before shuffling.
+            // For ~1000 items/batch, this memory footprint is negligible.
+            List<Item> items = new ArrayList<>();
             for (Result<Item> result : results) {
-                Item item = result.get();
+                items.add(result.get());
+            }
+            Collections.shuffle(items);
+
+            for (Item item : items) {
                 String batchId = item.objectName().substring(prefix.length());
                 // Handle trailing slash if exists (though markers shouldn't have it)
                 if (batchId.endsWith("/")) continue;

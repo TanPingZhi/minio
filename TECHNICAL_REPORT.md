@@ -139,6 +139,17 @@ A critical performance benefit of this design is the use of the **MinIO Server-S
 - **Execution**: When moving data from `tmp-bucket` to `prod-bucket`, the `BatchProcessor` issues a command to MinIO to perform the duplication internally.
 - **Benefit**: The actual file content NEVER travels over the network between MinIO and the Application. This eliminates bandwidth bottlenecks and ensures that even multi-gigabyte files are "moved" almost instantaneously, regardless of the application server's network capacity.
 
+### 7.5 Horizontal Scaling (Best Effort Parallelism)
+To support multi-instance deployments without complex distributed locking:
+- **Mechanism**: The `BatchProcessor` randomly shuffles the list of identified batches in the processing window before iterating.
+- **Effect**: If 2 or more replicas run simultaneously, they will statistically pick different batches to process first.
+- **Result**: This creates a continuous "work stealing" effect where multiple pods effectively divide the workload without coordination. Race conditions are handled by the idempotent check (`isProcessed()`) at the start of each batch.
+
+### 7.6 Concurrency & Overlap Handling
+Spring's `@Scheduled` annotation is single-threaded by default per instance. 
+- **Safety**: If a task execution exceeds the 5-minute interval, the next run is delayed until the current one finishes, preventing internal race conditions.
+- **Distributed Safety**: In a multi-pod environment, while Pod A is finishing a long run, Pod B can still start its scheduled run. The idempotency markers in the production bucket ensure that no batch is ever duplicated or routed twice to Kafka.
+
 ---
 
 ## 8. Conclusion
