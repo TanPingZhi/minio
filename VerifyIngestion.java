@@ -10,7 +10,9 @@ public class VerifyIngestion {
     public static void main(String[] args) throws Exception {
         System.out.println("--- Starting Verification (Server handles Batch ID and Metadata) ---");
 
-        uploadFiles("content.bin", "Binary Data Content");
+        uploadFiles("file1.bin", "Content of file 1",
+                    "file2.txt", "This is some text for file 2",
+                    "data.csv", "id,name\n1,test");
 
         System.out.println("--- Verification Complete ---");
     }

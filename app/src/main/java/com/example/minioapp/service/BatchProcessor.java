@@ -14,6 +14,7 @@ import java.io.ByteArrayInputStream;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,7 +36,6 @@ public class BatchProcessor {
 
     private static final DateTimeFormatter TIME_PATH_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd/HH");
 
-    // Run every 5 minutes
     @Scheduled(cron = "0 */5 * * * *")
     public void processBatches() {
         System.out.println("Starting batch processing job...");
@@ -46,7 +46,17 @@ public class BatchProcessor {
         processTimeWindow(now.minusHours(1));
     }
 
-    private void processTimeWindow(ZonedDateTime time) {
+    public void processRange(ZonedDateTime start, ZonedDateTime end) {
+        ZonedDateTime current = start.truncatedTo(ChronoUnit.HOURS);
+        ZonedDateTime endTruncated = end.truncatedTo(ChronoUnit.HOURS);
+        System.out.println("Manually processing range: " + current + " to " + endTruncated);
+        while (!current.isAfter(endTruncated)) {
+            processTimeWindow(current);
+            current = current.plusHours(1);
+        }
+    }
+
+    public void processTimeWindow(ZonedDateTime time) {
         String timePath = time.format(TIME_PATH_FORMAT);
         String prefix = "ready-to-process/" + timePath + "/";
         System.out.println("Scanning prefix: " + prefix);
