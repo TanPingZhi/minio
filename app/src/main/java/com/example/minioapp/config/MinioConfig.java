@@ -1,9 +1,6 @@
 package com.example.minioapp.config;
 
-import io.minio.BucketExistsArgs;
-import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,25 +31,5 @@ public class MinioConfig {
                 .build();
     }
 
-    @PostConstruct
-    public void initBuckets() {
-        System.out.println("Initializing MinIO buckets...");
-        createBucketIfNotExists(tmpBucket);
-        createBucketIfNotExists(prodBucket);
-    }
 
-    private void createBucketIfNotExists(String bucketName) {
-        try {
-            MinioClient client = minioClient();
-            boolean found = client.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());
-            if (!found) {
-                client.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
-                System.out.println("Created bucket: " + bucketName);
-            } else {
-                System.out.println("Bucket already exists: " + bucketName);
-            }
-        } catch (Exception e) {
-            System.err.println("Error initializing bucket " + bucketName + ": " + e.getMessage());
-        }
-    }
 }

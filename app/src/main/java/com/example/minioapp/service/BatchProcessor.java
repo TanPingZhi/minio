@@ -4,6 +4,7 @@ import io.minio.*;
 import io.minio.messages.Item;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -19,11 +20,8 @@ import java.util.List;
 @EnableScheduling
 public class BatchProcessor {
 
-    @Autowired
-    private MinioClient minioClient;
-
-    @Autowired
-    private KafkaService kafkaService;
+    private final MinioClient minioClient;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     @Value("${minio.buckets.tmp}")
     private String tmpBucket;
@@ -31,10 +29,17 @@ public class BatchProcessor {
     @Value("${minio.buckets.prod}")
     private String prodBucket;
 
+    public BatchProcessor(MinioClient minioClient, KafkaTemplate<String, String> kafkaTemplate) {
+        this.minioClient = minioClient;
+        this.kafkaTemplate = kafkaTemplate;
+    }
+
+
+
     private static final DateTimeFormatter TIME_PATH_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd/HH");
 
-    // Run every 5 minutes
-    @Scheduled(cron = "0 */5 * * * *")
+    // Run every 1 minute (temporarily for demo)
+    @Scheduled(cron = "0 */1 * * * *")
     public void processBatches() {
         System.out.println("Starting batch processing job...");
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
@@ -88,7 +93,6 @@ public class BatchProcessor {
             Iterable<Result<Item>> fileResults = minioClient.listObjects(
                     ListObjectsArgs.builder().bucket(tmpBucket).prefix(dataPrefix).recursive(true).build());
 
-            List<String> filesCopied = new ArrayList<>();
             for (Result<Item> res : fileResults) {
                 Item fileItem = res.get();
                 String sourceObj = fileItem.objectName();
@@ -101,8 +105,6 @@ public class BatchProcessor {
                                 .bucket(prodBucket)
                                 .object(destObj)
                                 .build());
-                filesCopied.add(destObj);
-
                 // If it's a JSON metadata file, publish to Kafka
                 // Expecting pairs like: content.bin, content-meta1.json (Topic A), content-meta2.json (Topic B)
                 if (destObj.endsWith(".json")) {
@@ -116,7 +118,7 @@ public class BatchProcessor {
                         topic = "topic-beta";
                     }
                     
-                    kafkaService.sendMessage(topic, batchId, content);
+                    kafkaTemplate.send(topic, content);
                     System.out.println("Published to " + topic + ": " + destObj);
                 }
             }
