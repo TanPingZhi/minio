@@ -68,19 +68,18 @@ public class BatchProcessor {
 
             // Collections.shuffle for probabilistic load balancing across pods
             // Note: listObjects returns a lazy Iterable that handles MinIO pagination transparently.
-            // We iterate fully to load all items into memory before shuffling.
-            // For ~1000 items/batch, this memory footprint is negligible.
-            List<Item> items = new ArrayList<>();
+            // We extract just the batchId strings to minimize memory footprint during the shuffle.
+            List<String> batchIds = new ArrayList<>();
             for (Result<Item> result : results) {
-                items.add(result.get());
+                String objectName = result.get().objectName();
+                String batchId = objectName.substring(prefix.length());
+                if (!batchId.endsWith("/")) {
+                    batchIds.add(batchId);
+                }
             }
-            Collections.shuffle(items);
+            Collections.shuffle(batchIds);
 
-            for (Item item : items) {
-                String batchId = item.objectName().substring(prefix.length());
-                // Handle trailing slash if exists (though markers shouldn't have it)
-                if (batchId.endsWith("/")) continue;
-
+            for (String batchId : batchIds) {
                 processBatch(batchId);
             }
         } catch (Exception e) {
