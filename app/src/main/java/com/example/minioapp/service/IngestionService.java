@@ -1,8 +1,10 @@
 package com.example.minioapp.service;
 
+import com.example.minioapp.model.MetadataContent;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,10 +17,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class IngestionService {
 
-    @Autowired
-    private MinioClient minioClient;
+    private final MinioClient minioClient;
+    private final ObjectMapper objectMapper;
 
     @Value("${minio.buckets.tmp}")
     private String tmpBucket;
@@ -46,28 +49,16 @@ public class IngestionService {
             result.append("Uploaded: ").append(objectName).append("\n");
 
             // Generate metadata files for Topic Alpha and Beta
-            String metaContent = "{\"filename\": \"" + originalFilename + "\"}";
-            byte[] metaBytes = metaContent.getBytes();
+            MetadataContent metadata = new MetadataContent(originalFilename, batchId);
+            byte[] metaBytes = objectMapper.writeValueAsBytes(metadata);
 
             // Meta 1 -> Topic Alpha
             String meta1Path = "data/" + batchId + "/" + originalFilename + "-meta1.json";
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(tmpBucket)
-                            .object(meta1Path)
-                            .stream(new ByteArrayInputStream(metaBytes), metaBytes.length, -1)
-                            .contentType("application/json")
-                            .build());
+            uploadBytes(meta1Path, metaBytes, "application/json");
             
             // Meta 2 -> Topic Beta
             String meta2Path = "data/" + batchId + "/" + originalFilename + "-meta2.json";
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(tmpBucket)
-                            .object(meta2Path)
-                            .stream(new ByteArrayInputStream(metaBytes), metaBytes.length, -1)
-                            .contentType("application/json")
-                            .build());
+            uploadBytes(meta2Path, metaBytes, "application/json");
 
             result.append("Generated Metadata: ").append(meta1Path).append(", ").append(meta2Path).append("\n");
         }
@@ -77,14 +68,19 @@ public class IngestionService {
         String timePath = now.format(DateTimeFormatter.ofPattern("yyyy/MM/dd/HH"));
         String markerPath = "ready-to-process/" + timePath + "/" + batchId;
 
-        minioClient.putObject(
-                PutObjectArgs.builder()
-                        .bucket(tmpBucket)
-                        .object(markerPath)
-                        .stream(new ByteArrayInputStream(new byte[0]), 0, -1)
-                        .build());
+        uploadBytes(markerPath, new byte[0], "application/octet-stream");
 
         result.append("Batch marked complete at: ").append(markerPath);
         return result.toString();
+    }
+
+    private void uploadBytes(String objectName, byte[] content, String contentType) throws Exception {
+        minioClient.putObject(
+                PutObjectArgs.builder()
+                        .bucket(tmpBucket)
+                        .object(objectName)
+                        .stream(new ByteArrayInputStream(content), content.length, -1)
+                        .contentType(contentType)
+                        .build());
     }
 }
