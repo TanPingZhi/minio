@@ -2,6 +2,7 @@ package com.example.minioapp.service;
 
 import io.minio.*;
 import io.minio.messages.Item;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -18,6 +19,7 @@ import java.util.List;
 
 @Service
 @EnableScheduling
+@RequiredArgsConstructor
 public class BatchProcessor {
 
     private final MinioClient minioClient;
@@ -28,11 +30,6 @@ public class BatchProcessor {
 
     @Value("${minio.buckets.prod}")
     private String prodBucket;
-
-    public BatchProcessor(MinioClient minioClient, KafkaTemplate<String, String> kafkaTemplate) {
-        this.minioClient = minioClient;
-        this.kafkaTemplate = kafkaTemplate;
-    }
 
 
 
