@@ -38,8 +38,8 @@ public class BatchProcessor {
 
     private static final DateTimeFormatter TIME_PATH_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd/HH");
 
-    // Run every 1 minute (temporarily for demo)
-    @Scheduled(cron = "0 */1 * * * *")
+    // Run every 5 minutes
+    @Scheduled(cron = "0 */5 * * * *")
     public void processBatches() {
         System.out.println("Starting batch processing job...");
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
