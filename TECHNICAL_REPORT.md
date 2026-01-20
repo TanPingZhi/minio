@@ -134,6 +134,11 @@ The stateless design implies zero contention. We can trivially horizontally scal
 1.  **Parallel Threads**: Convert the `for` loop to `files.parallelStream().forEach(...)` to utilize all CPU cores.
 2.  **Multiple Consumers**: Deploy multiple replicas of the App. Since `ready-to-process` scans are idempotent and fast, workers can race or partition based on hash ranges (future optimization).
 
+### 7.4 Server-Side Copy Efficiency
+A critical performance benefit of this design is the use of the **MinIO Server-Side Copy** (S3 `COPY` operation). 
+- **Execution**: When moving data from `tmp-bucket` to `prod-bucket`, the `BatchProcessor` issues a command to MinIO to perform the duplication internally.
+- **Benefit**: The actual file content NEVER travels over the network between MinIO and the Application. This eliminates bandwidth bottlenecks and ensures that even multi-gigabyte files are "moved" almost instantaneously, regardless of the application server's network capacity.
+
 ---
 
 ## 8. Conclusion
